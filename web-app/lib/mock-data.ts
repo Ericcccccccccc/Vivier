@@ -182,7 +182,7 @@ HR Team`,
     from: 'alex.johnson@clientcorp.com',
     fromName: 'Alex Johnson',
     to: ['john.doe@company.com'],
-    preview: 'Hi John, We've completed our review of the prototype you sent last week. Overall, we're impressed...',
+    preview: "Hi John, We've completed our review of the prototype you sent last week. Overall, we're impressed...",
     body: `Hi John,
 
 We've completed our review of the prototype you sent last week. Overall, we're impressed with the progress, but we have some feedback:
@@ -286,7 +286,7 @@ Read more on our website!`,
     from: 'manager@company.com',
     fromName: 'Lisa Thompson',
     to: ['john.doe@company.com'],
-    preview: 'Hi John, It's time for our quarterly performance reviews. I'd like to schedule your review for next week...',
+    preview: "Hi John, It's time for our quarterly performance reviews. I'd like to schedule your review for next week...",
     body: `Hi John,
 
 It's time for our quarterly performance reviews. I'd like to schedule your review for next week.
@@ -383,7 +383,7 @@ Security Team`,
     from: 'designer@company.com',
     fromName: 'Emma Wilson',
     to: ['john.doe@company.com'],
-    preview: 'You're invited to the design review meeting for the new dashboard features...',
+    preview: "You're invited to the design review meeting for the new dashboard features...",
     body: `Hi John,
 
 You're invited to the design review meeting for the new dashboard features.

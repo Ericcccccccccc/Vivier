@@ -38,6 +38,8 @@ export default function SettingsPage() {
     responseStyle: 'professional' as const,
   })
   
+  const [saved, setSaved] = useState(false)
+  
   useEffect(() => {
     if (user) {
       setProfileData({
@@ -58,6 +60,8 @@ export default function SettingsPage() {
     try {
       await updateUser({ name: profileData.name })
       toast.success('Profile updated successfully')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
     } catch (error) {
       toast.error('Failed to update profile')
     }
@@ -142,7 +146,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <Button onClick={handleSave}>
+              <Button onClick={handleSaveProfile}>
                 <Save className="h-4 w-4 mr-2" />
                 {saved ? 'Saved!' : 'Save Changes'}
               </Button>

@@ -28,8 +28,8 @@ RUN apk add --no-cache dumb-init
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copy package files
-COPY --chown=nodejs:nodejs package*.json ./
+# Copy package files (use package-docker.json as package.json)
+COPY --chown=nodejs:nodejs package-docker.json ./package.json
 
 # Install only production dependencies
 RUN npm install --only=production && \

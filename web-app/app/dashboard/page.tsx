@@ -37,8 +37,29 @@ export default function DashboardPage() {
   useEmailSubscription(user?.id)
   
   const emails = emailsData?.emails || []
-  const selectedEmail = emails.find(e => e.id === selectedEmailId) || null
+  const selectedEmailRaw = emails.find(e => e.id === selectedEmailId) || null
   const unreadCount = emails.filter(e => !e.isRead).length
+  
+  // Adapt API email to component email format
+  const selectedEmail = selectedEmailRaw ? {
+    ...selectedEmailRaw,
+    fromName: selectedEmailRaw.from.split('@')[0],
+    preview: selectedEmailRaw.body.substring(0, 100) + '...',
+    received: new Date(),
+    hasAttachment: false,
+    to: [selectedEmailRaw.to],
+    isStarred: false,
+    isImportant: selectedEmailRaw.isPriority || false,
+    category: (selectedEmailRaw.category || 'work') as 'work' | 'personal' | 'marketing' | 'social' | 'updates',
+    aiResponse: selectedEmailRaw.aiResponse ? {
+      text: selectedEmailRaw.aiResponse.response || '',
+      confidence: selectedEmailRaw.aiResponse.confidence || 0.95,
+      generatedAt: new Date(),
+      status: 'draft' as const,
+      style: (selectedEmailRaw.aiResponse.style === 'professional' ? 'formal' : 
+              selectedEmailRaw.aiResponse.style) as 'formal' | 'casual' | 'brief' | undefined
+    } : undefined
+  } : null
 
   const handleEmailSelect = (id: string) => {
     setSelectedEmailId(id)
@@ -47,7 +68,7 @@ export default function DashboardPage() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
-    setFilter({ ...filter, search: query })
+    setFilter({ ...filter, filter: query })
   }
 
   const handleReply = () => {
@@ -112,16 +133,16 @@ export default function DashboardPage() {
                 Unread ({unreadCount})
               </Badge>
               <Badge
-                variant={filter.isImportant ? "default" : "outline"}
+                variant="outline"
                 className="cursor-pointer whitespace-nowrap"
-                onClick={() => setFilter({ ...filter, isImportant: !filter.isImportant })}
+                onClick={() => console.log('Important filter not implemented')}
               >
                 Important
               </Badge>
               <Badge
-                variant={filter.hasAttachment ? "default" : "outline"}
+                variant="outline"
                 className="cursor-pointer whitespace-nowrap"
-                onClick={() => setFilter({ ...filter, hasAttachment: !filter.hasAttachment })}
+                onClick={() => console.log('Attachment filter not implemented')}
               >
                 Has Attachment
               </Badge>
