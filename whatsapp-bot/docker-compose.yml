@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  whatsapp-bot:
+    build: .
+    container_name: whatsapp-bot
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - API_URL=${API_URL:-https://api.email-ai.app}
+      - API_KEY=${API_KEY}
+      - SESSION_PATH=/app/session
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ENABLE_COMMANDS=true
+      - ENABLE_NOTIFICATIONS=true
+      - ADMIN_WHATSAPP_ID=${ADMIN_WHATSAPP_ID}
+    volumes:
+      - ./session:/app/session
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    networks:
+      - bot-network
+    mem_limit: 512m
+    mem_reservation: 256m
+    cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  bot-network:
+    driver: bridge
+
+volumes:
+  session:
+  logs:
+  backups:

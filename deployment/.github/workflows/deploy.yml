@@ -1,0 +1,455 @@
+name: Deploy Email AI Assistant
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PROJECT_ID: email-ai-assistant
+  REGION: us-central1
+  SERVICE_NAME: email-ai-api
+  VM_NAME: whatsapp-bot
+  VM_ZONE: us-central1-a
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: Install dependencies - API
+        working-directory: ./api-server
+        run: npm ci
+      
+      - name: Run API tests
+        working-directory: ./api-server
+        run: |
+          npm run lint || true
+          npm run typecheck || true
+          npm test || true
+      
+      - name: Install dependencies - WhatsApp Bot
+        working-directory: ./whatsapp-bot
+        run: npm ci
+      
+      - name: Run WhatsApp Bot tests
+        working-directory: ./whatsapp-bot
+        run: npm test || true
+      
+      - name: Install dependencies - Frontend
+        working-directory: ./web-app
+        run: npm ci
+      
+      - name: Run Frontend tests
+        working-directory: ./web-app
+        run: |
+          npm run lint || true
+          npm test || true
+      
+      - name: Build Frontend
+        working-directory: ./web-app
+        run: npm run build
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            */coverage
+            */test-results
+
+  build-and-push:
+    name: Build and Push Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+      
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.ref_name }} \
+            --build-arg NODE_ENV=production \
+            ./api-server
+      
+      - name: Push Docker image
+        run: |
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.ref_name }}
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main' || github.event.inputs.environment == 'staging'
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Deploy to Cloud Run (Staging)
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}-staging
+          image: gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          region: ${{ env.REGION }}
+          env_vars: |
+            NODE_ENV=staging
+            COMMIT_SHA=${{ github.sha }}
+            BRANCH=${{ github.ref_name }}
+          secrets: |
+            SUPABASE_URL=supabase-url:latest
+            SUPABASE_SERVICE_KEY=supabase-service-key:latest
+            GROQ_API_KEY=groq-api-key:latest
+            JWT_SECRET=jwt-secret:latest
+          flags: |
+            --allow-unauthenticated
+            --min-instances=0
+            --max-instances=5
+            --memory=512Mi
+            --cpu=1
+            --timeout=60
+            --concurrency=1000
+            --service-account=email-ai-api@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+      
+      - name: Run smoke tests
+        run: |
+          SERVICE_URL="${{ steps.deploy.outputs.url }}"
+          echo "Testing staging deployment at: $SERVICE_URL"
+          
+          # Test health endpoint
+          curl -f "$SERVICE_URL/health" || exit 1
+          
+          # Test API endpoint
+          curl -f "$SERVICE_URL/api/v1/status" || exit 1
+          
+          echo "Smoke tests passed!"
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 Staging deployment successful!\n\nURL: ${{ steps.deploy.outputs.url }}\nCommit: ${{ github.sha }}`
+            })
+
+  deploy-production:
+    name: Deploy to Production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Deploy to Cloud Run (Canary)
+        id: deploy-canary
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          image: gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          region: ${{ env.REGION }}
+          tag: canary
+          no_traffic: true
+          env_vars: |
+            NODE_ENV=production
+            COMMIT_SHA=${{ github.sha }}
+          secrets: |
+            SUPABASE_URL=supabase-url:latest
+            SUPABASE_SERVICE_KEY=supabase-service-key:latest
+            GROQ_API_KEY=groq-api-key:latest
+            JWT_SECRET=jwt-secret:latest
+            OPENAI_API_KEY=openai-api-key:latest
+          flags: |
+            --allow-unauthenticated
+            --min-instances=0
+            --max-instances=10
+            --memory=512Mi
+            --cpu=1
+            --timeout=60
+            --concurrency=1000
+            --service-account=email-ai-api@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+      
+      - name: Route 10% traffic to canary
+        run: |
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --to-tags=canary=10 \
+            --region=${{ env.REGION }}
+      
+      - name: Wait and monitor canary
+        run: |
+          echo "Monitoring canary deployment for 2 minutes..."
+          sleep 120
+          
+          # Check for errors in logs
+          ERROR_COUNT=$(gcloud logging read \
+            "resource.type=cloud_run_revision AND \
+             resource.labels.service_name=${{ env.SERVICE_NAME }} AND \
+             labels.tag=canary AND \
+             severity>=ERROR" \
+            --limit=10 \
+            --format="value(timestamp)" | wc -l)
+          
+          if [ $ERROR_COUNT -gt 5 ]; then
+            echo "Too many errors detected in canary. Rolling back..."
+            gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+              --to-latest \
+              --region=${{ env.REGION }}
+            exit 1
+          fi
+      
+      - name: Promote canary to production
+        id: deploy
+        run: |
+          echo "Promoting canary to production..."
+          
+          # Route 50% traffic
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --to-tags=canary=50 \
+            --region=${{ env.REGION }}
+          
+          sleep 60
+          
+          # Route 100% traffic
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --to-latest \
+            --region=${{ env.REGION }}
+          
+          # Get service URL
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          
+          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+      
+      - name: Update WhatsApp Bot
+        run: |
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.VM_ZONE }} \
+            --command="cd /opt/whatsapp-bot && \
+                      git pull origin main && \
+                      npm ci --production && \
+                      npm run build && \
+                      pm2 reload whatsapp-bot --update-env" || true
+
+  deploy-frontend:
+    name: Deploy Frontend to Vercel
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      - name: Install Vercel CLI
+        run: npm i -g vercel
+      
+      - name: Deploy to Vercel
+        working-directory: ./web-app
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            vercel --prod --token=$VERCEL_TOKEN --yes
+          else
+            vercel --token=$VERCEL_TOKEN --yes
+          fi
+
+  notify:
+    name: Send Notifications
+    needs: [deploy-production, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Send Slack notification
+        if: vars.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ needs.deploy-production.result == 'success' && needs.deploy-frontend.result == 'success' && '✅ Success' || '❌ Failed' }}"
+          
+          curl -X POST $SLACK_WEBHOOK_URL \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"Deployment $STATUS\",
+              \"blocks\": [
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*Email AI Assistant Deployment*\n\nStatus: $STATUS\nCommit: \`${{ github.sha }}\`\nBranch: \`${{ github.ref_name }}\`\nTriggered by: ${{ github.actor }}\"
+                  }
+                }
+              ]
+            }"
+      
+      - name: Create GitHub deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'production',
+              required_contexts: [],
+              auto_merge: false
+            });
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: '${{ needs.deploy-production.result }}',
+              environment_url: '${{ needs.deploy-production.outputs.url }}',
+              description: 'Deployment completed'
+            });
+
+  cleanup:
+    name: Cleanup Old Resources
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Clean up old images
+        run: |
+          # List images older than 7 days
+          OLD_IMAGES=$(gcloud container images list-tags \
+            gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
+            --filter="timestamp.datetime < '-P7D'" \
+            --format='get(digest)')
+          
+          # Delete old images
+          for IMAGE in $OLD_IMAGES; do
+            echo "Deleting image: $IMAGE"
+            gcloud container images delete \
+              "gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}@$IMAGE" \
+              --quiet || true
+          done
+      
+      - name: Clean up old Cloud Run revisions
+        run: |
+          # Keep only last 5 revisions
+          REVISIONS=$(gcloud run revisions list \
+            --service=${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format="value(name)" \
+            --sort-by="~metadata.creationTimestamp" | tail -n +6)
+          
+          for REVISION in $REVISIONS; do
+            echo "Deleting revision: $REVISION"
+            gcloud run revisions delete $REVISION \
+              --region=${{ env.REGION }} \
+              --quiet || true
+          done

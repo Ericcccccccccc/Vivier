@@ -1,0 +1,385 @@
+# Monitoring Configuration for GCP
+# Defines alerts, SLOs, and dashboards
+
+# Service Level Objectives (SLOs)
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: ServiceLevelObjective
+metadata:
+  name: email-ai-api-availability-slo
+  displayName: "Email AI API Availability"
+spec:
+  serviceLevelIndicator:
+    requestBased:
+      goodTotalRatio:
+        goodServiceFilter: |
+          resource.type="cloud_run_revision"
+          resource.labels.service_name="email-ai-api"
+          metric.type="run.googleapis.com/request_count"
+          metric.labels.response_code_class!="5xx"
+        totalServiceFilter: |
+          resource.type="cloud_run_revision"
+          resource.labels.service_name="email-ai-api"
+          metric.type="run.googleapis.com/request_count"
+  goal: 0.99
+  rollingPeriod: 2592000s  # 30 days
+  displayName: "99% Availability"
+
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: ServiceLevelObjective
+metadata:
+  name: email-ai-api-latency-slo
+  displayName: "Email AI API Latency"
+spec:
+  serviceLevelIndicator:
+    requestBased:
+      distributionCut:
+        range:
+          max: 500  # 500ms
+  goal: 0.95
+  rollingPeriod: 2592000s  # 30 days
+  displayName: "95% of requests < 500ms"
+
+# Alert Policies
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: AlertPolicy
+metadata:
+  name: high-error-rate
+  displayName: "High Error Rate Alert"
+spec:
+  conditions:
+    - displayName: "Error rate > 1%"
+      conditionThreshold:
+        filter: |
+          resource.type="cloud_run_revision"
+          resource.labels.service_name="email-ai-api"
+          metric.type="run.googleapis.com/request_count"
+          metric.labels.response_code_class="5xx"
+        aggregations:
+          - alignmentPeriod: 300s
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_SUM
+        comparison: COMPARISON_GT
+        thresholdValue: 0.01
+        duration: 300s
+  notificationChannels:
+    - projects/${PROJECT_ID}/notificationChannels/${NOTIFICATION_CHANNEL_ID}
+  alertStrategy:
+    autoClose: 86400s  # 24 hours
+  documentation:
+    content: |
+      The error rate for the Email AI API has exceeded 1%.
+      
+      Check:
+      1. Cloud Run logs for errors
+      2. Database connectivity
+      3. External API availability
+      
+      Dashboard: https://console.cloud.google.com/monitoring/dashboards
+
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: AlertPolicy
+metadata:
+  name: high-latency
+  displayName: "High Latency Alert"
+spec:
+  conditions:
+    - displayName: "P95 latency > 1000ms"
+      conditionThreshold:
+        filter: |
+          resource.type="cloud_run_revision"
+          resource.labels.service_name="email-ai-api"
+          metric.type="run.googleapis.com/request_latencies"
+        aggregations:
+          - alignmentPeriod: 300s
+            perSeriesAligner: ALIGN_PERCENTILE_95
+            crossSeriesReducer: REDUCE_MEAN
+        comparison: COMPARISON_GT
+        thresholdValue: 1000
+        duration: 300s
+  notificationChannels:
+    - projects/${PROJECT_ID}/notificationChannels/${NOTIFICATION_CHANNEL_ID}
+
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: AlertPolicy
+metadata:
+  name: cloud-run-quota-usage
+  displayName: "Cloud Run Free Tier Usage Alert"
+spec:
+  conditions:
+    - displayName: "Request count > 80% of free tier"
+      conditionThreshold:
+        filter: |
+          resource.type="cloud_run_revision"
+          metric.type="run.googleapis.com/request_count"
+        aggregations:
+          - alignmentPeriod: 86400s  # 1 day
+            perSeriesAligner: ALIGN_SUM
+            crossSeriesReducer: REDUCE_SUM
+        comparison: COMPARISON_GT
+        thresholdValue: 53333  # 80% of 2M/month = ~66,666/day, 80% = 53,333
+        duration: 0s
+  notificationChannels:
+    - projects/${PROJECT_ID}/notificationChannels/${NOTIFICATION_CHANNEL_ID}
+  documentation:
+    content: |
+      Cloud Run request count is approaching free tier limit (2M/month).
+      Current usage is over 80% of daily average.
+      
+      Consider:
+      1. Implementing caching
+      2. Rate limiting
+      3. Upgrading to paid tier
+
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: AlertPolicy
+metadata:
+  name: vm-down
+  displayName: "WhatsApp Bot VM Down"
+spec:
+  conditions:
+    - displayName: "VM instance is down"
+      conditionThreshold:
+        filter: |
+          resource.type="gce_instance"
+          resource.labels.instance_name="whatsapp-bot"
+          metric.type="compute.googleapis.com/instance/uptime"
+        aggregations:
+          - alignmentPeriod: 300s
+            perSeriesAligner: ALIGN_MAX
+        comparison: COMPARISON_LT
+        thresholdValue: 1
+        duration: 300s
+  notificationChannels:
+    - projects/${PROJECT_ID}/notificationChannels/${NOTIFICATION_CHANNEL_ID}
+
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: AlertPolicy
+metadata:
+  name: storage-usage
+  displayName: "Cloud Storage Usage Alert"
+spec:
+  conditions:
+    - displayName: "Storage usage > 4GB"
+      conditionThreshold:
+        filter: |
+          resource.type="gcs_bucket"
+          resource.labels.bucket_name="${PROJECT_ID}-backups"
+          metric.type="storage.googleapis.com/storage/total_bytes"
+        aggregations:
+          - alignmentPeriod: 3600s
+            perSeriesAligner: ALIGN_MAX
+        comparison: COMPARISON_GT
+        thresholdValue: 4294967296  # 4GB in bytes
+        duration: 0s
+  notificationChannels:
+    - projects/${PROJECT_ID}/notificationChannels/${NOTIFICATION_CHANNEL_ID}
+  documentation:
+    content: |
+      Cloud Storage usage is approaching free tier limit (5GB).
+      
+      Action required:
+      1. Review backup retention policy
+      2. Delete old backups
+      3. Compress files if possible
+
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: AlertPolicy
+metadata:
+  name: secret-access-spike
+  displayName: "Unusual Secret Access Pattern"
+spec:
+  conditions:
+    - displayName: "Secret access spike"
+      conditionThreshold:
+        filter: |
+          resource.type="secretmanager.googleapis.com/Secret"
+          metric.type="secretmanager.googleapis.com/secret/access_count"
+        aggregations:
+          - alignmentPeriod: 3600s
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_SUM
+        comparison: COMPARISON_GT
+        thresholdValue: 100  # 100 accesses per hour
+        duration: 300s
+  notificationChannels:
+    - projects/${PROJECT_ID}/notificationChannels/${NOTIFICATION_CHANNEL_ID}
+  documentation:
+    content: |
+      Unusual spike in secret access detected.
+      This could indicate:
+      1. Application misconfiguration
+      2. Potential security issue
+      3. Excessive restarts
+      
+      Check Cloud Audit Logs for details.
+
+# Uptime Checks
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: UptimeCheckConfig
+metadata:
+  name: api-health-check
+  displayName: "API Health Check"
+spec:
+  monitoredResource:
+    type: "cloud_run_revision"
+    labels:
+      service_name: "email-ai-api"
+      location: "us-central1"
+  httpCheck:
+    path: "/health"
+    port: 443
+    requestMethod: GET
+    acceptedResponseStatusCodes:
+      - start: 200
+        end: 299
+  period: 60s
+  timeout: 10s
+  selectedRegions:
+    - USA
+
+---
+apiVersion: monitoring.googleapis.com/v3
+kind: UptimeCheckConfig
+metadata:
+  name: whatsapp-bot-check
+  displayName: "WhatsApp Bot Health Check"
+spec:
+  monitoredResource:
+    type: "gce_instance"
+    labels:
+      instance_id: "${VM_INSTANCE_ID}"
+      zone: "us-central1-a"
+  tcpCheck:
+    port: 8080
+  period: 300s
+  timeout: 10s
+
+# Dashboard Configuration
+---
+apiVersion: monitoring.dashboard/v1
+kind: Dashboard
+metadata:
+  name: email-ai-assistant-dashboard
+  displayName: "Email AI Assistant Dashboard"
+spec:
+  mosaicLayout:
+    columns: 12
+    tiles:
+      # Cloud Run Metrics
+      - width: 6
+        height: 4
+        widget:
+          title: "API Request Rate"
+          xyChart:
+            dataSets:
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: |
+                      resource.type="cloud_run_revision"
+                      resource.labels.service_name="email-ai-api"
+                      metric.type="run.googleapis.com/request_count"
+                plotType: LINE
+            timeshiftDuration: 0s
+            yAxis:
+              scale: LINEAR
+      
+      - xPos: 6
+        width: 6
+        height: 4
+        widget:
+          title: "API Latency (P50, P95, P99)"
+          xyChart:
+            dataSets:
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: |
+                      resource.type="cloud_run_revision"
+                      resource.labels.service_name="email-ai-api"
+                      metric.type="run.googleapis.com/request_latencies"
+                  secondaryAggregation:
+                    alignmentPeriod: 60s
+                    perSeriesAligner: ALIGN_PERCENTILE_50
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: |
+                      resource.type="cloud_run_revision"
+                      resource.labels.service_name="email-ai-api"
+                      metric.type="run.googleapis.com/request_latencies"
+                  secondaryAggregation:
+                    alignmentPeriod: 60s
+                    perSeriesAligner: ALIGN_PERCENTILE_95
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: |
+                      resource.type="cloud_run_revision"
+                      resource.labels.service_name="email-ai-api"
+                      metric.type="run.googleapis.com/request_latencies"
+                  secondaryAggregation:
+                    alignmentPeriod: 60s
+                    perSeriesAligner: ALIGN_PERCENTILE_99
+      
+      # Error Rate
+      - yPos: 4
+        width: 6
+        height: 4
+        widget:
+          title: "Error Rate"
+          xyChart:
+            dataSets:
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: |
+                      resource.type="cloud_run_revision"
+                      resource.labels.service_name="email-ai-api"
+                      metric.type="run.googleapis.com/request_count"
+                      metric.labels.response_code_class="5xx"
+      
+      # VM Metrics
+      - xPos: 6
+        yPos: 4
+        width: 6
+        height: 4
+        widget:
+          title: "WhatsApp Bot VM CPU Usage"
+          xyChart:
+            dataSets:
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: |
+                      resource.type="gce_instance"
+                      resource.labels.instance_name="whatsapp-bot"
+                      metric.type="compute.googleapis.com/instance/cpu/utilization"
+      
+      # Free Tier Usage
+      - yPos: 8
+        width: 12
+        height: 4
+        widget:
+          title: "Free Tier Usage Summary"
+          scorecard:
+            timeSeriesQuery:
+              timeSeriesFilter:
+                filter: |
+                  resource.type="cloud_run_revision"
+                  metric.type="run.googleapis.com/request_count"
+              secondaryAggregation:
+                alignmentPeriod: 2592000s  # 30 days
+                perSeriesAligner: ALIGN_SUM
+            sparkChartView:
+              sparkChartType: SPARK_LINE
+            thresholds:
+              - value: 1600000
+                direction: ABOVE
+                displayText: "Warning: 80% of free tier"
+              - value: 2000000
+                direction: ABOVE
+                displayText: "Critical: Free tier exceeded"
