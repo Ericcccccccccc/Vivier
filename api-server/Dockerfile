@@ -3,12 +3,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files (use package-docker.json which has no local dependencies)
+COPY package-docker.json ./package.json
 COPY tsconfig.json ./
 
 # Install all dependencies (including dev for building)
-RUN npm ci
+RUN npm install
 
 # Copy source
 COPY src ./src
@@ -32,7 +32,7 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY --chown=nodejs:nodejs package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production && \
+RUN npm install --only=production && \
     npm cache clean --force
 
 # Copy built application

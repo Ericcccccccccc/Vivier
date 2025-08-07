@@ -1,0 +1,9 @@
+Deployment started at Thu 07 Aug 2025 01:58:20 PM -03
+===================================
+Setting up Secret Manager
+===================================
+Project: vivier-468315
+
+Checking for required secrets...
+
+Enter OpenAI API Key (optional, press Enter to skip): 
