@@ -95,8 +95,5 @@ export const ai = new AIWrapper(aiProvider);
 export type {
   AIProvider,
   AIGenerationInput,
-  AIResponse,
-  EmailGenerationContext,
-  EmailAnalysisInput,
-  StreamingResponse
+  AIResponse
 } from '@email-ai/ai-provider';

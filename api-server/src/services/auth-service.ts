@@ -151,13 +151,15 @@ export class AuthService {
       email: user.email,
     };
     
+    // JWT accepts string time spans like "15m", "7d", "2h", etc.
+    // These are parsed by the 'ms' package internally
     const accessToken = jwt.sign(payload, config.JWT_SECRET, {
-      expiresIn: config.JWT_EXPIRES_IN as string | number,
-    });
+      expiresIn: config.JWT_EXPIRES_IN, // e.g., "15m"
+    } as jwt.SignOptions);
     
     const refreshToken = jwt.sign(payload, config.JWT_SECRET, {
-      expiresIn: config.REFRESH_TOKEN_EXPIRES_IN as string | number,
-    });
+      expiresIn: config.REFRESH_TOKEN_EXPIRES_IN, // e.g., "7d"
+    } as jwt.SignOptions);
     
     return { accessToken, refreshToken };
   }
