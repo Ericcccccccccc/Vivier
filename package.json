@@ -1,0 +1,30 @@
+{
+  "name": "vivier-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vivier Email AI Assistant Monorepo",
+  "workspaces": [
+    "database-layer",
+    "ai-provider-layer",
+    "api-server"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:api": "npm run build --workspace=api-server",
+    "build:database": "npm run build --workspace=database-layer",
+    "build:ai": "npm run build --workspace=ai-provider-layer",
+    "clean": "npm run clean --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:api": "npm run dev --workspace=api-server"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
