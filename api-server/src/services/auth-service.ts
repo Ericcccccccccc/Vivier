@@ -31,10 +31,25 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Create user
+    // Create user (password will be stored separately in auth system)
     const user = await db.createUser({
       email,
-      password: hashedPassword,
+      settings: {
+        notifications_enabled: true,
+        auto_reply: false,
+        language: 'en',
+        theme: 'light',
+        ai_tone: 'professional'
+      }
+    });
+    
+    // Store password hash separately (would normally use Supabase Auth)
+    // For now, we'll store it in user metadata
+    await db.updateUser(user.id, {
+      settings: {
+        ...user.settings,
+        passwordHash: hashedPassword // Temporary solution
+      }
     });
     
     // Generate tokens
@@ -57,8 +72,12 @@ export class AuthService {
       throw new UnauthorizedError('Invalid credentials');
     }
     
-    // Verify password
-    const valid = await bcrypt.compare(password, user.password);
+    // Verify password (temporary: stored in settings)
+    const passwordHash = user.settings?.passwordHash;
+    if (!passwordHash) {
+      throw new UnauthorizedError('Invalid credentials');
+    }
+    const valid = await bcrypt.compare(password, passwordHash);
     if (!valid) {
       throw new UnauthorizedError('Invalid credentials');
     }
@@ -133,11 +152,11 @@ export class AuthService {
     };
     
     const accessToken = jwt.sign(payload, config.JWT_SECRET, {
-      expiresIn: config.JWT_EXPIRES_IN,
+      expiresIn: config.JWT_EXPIRES_IN as string | number,
     });
     
     const refreshToken = jwt.sign(payload, config.JWT_SECRET, {
-      expiresIn: config.REFRESH_TOKEN_EXPIRES_IN,
+      expiresIn: config.REFRESH_TOKEN_EXPIRES_IN as string | number,
     });
     
     return { accessToken, refreshToken };

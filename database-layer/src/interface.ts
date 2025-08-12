@@ -17,8 +17,30 @@ import {
   QueryOptions,
   PaginatedResult,
   SubscriptionCallback,
-  UnsubscribeFunction,
-  TransactionContext
+  UnsubscribeFunction
+} from './types';
+
+// Re-export types for external use
+export {
+  User,
+  CreateUserInput,
+  UpdateUserInput,
+  EmailAccount,
+  EmailAccountInput,
+  Email,
+  CreateEmailInput,
+  AIResponse,
+  AIResponseInput,
+  ResponseTemplate,
+  TemplateInput,
+  NotificationLog,
+  NotificationInput,
+  UsageMetric,
+  MetricType,
+  QueryOptions,
+  PaginatedResult,
+  SubscriptionCallback,
+  UnsubscribeFunction
 } from './types';
 
 /**

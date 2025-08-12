@@ -2,22 +2,20 @@ node_modules
 npm-debug.log
 .env
 .env.*
-!.env.example
 dist
 .git
 .gitignore
-README.md
-.eslintrc
-.prettierrc
+*.md
+.DS_Store
 coverage
 .nyc_output
-.DS_Store
-*.log
 .vscode
 .idea
-*.swp
-*.swo
-*~
-.cache
-tmp
-temp
+*.log
+test-*.sh
+Dockerfile*
+.dockerignore
+# Temporary files (commented out for build)
+# database-layer-temp
+# ai-provider-layer-temp
+# package-temp.json

@@ -143,14 +143,19 @@ app.use((req, res) => {
 // Error handling
 app.use(errorHandler);
 
+// Store server instance
+let serverInstance: any = null;
+
 // Graceful shutdown
 const gracefulShutdown = async (signal: string) => {
   logger.info(`Received ${signal}, starting graceful shutdown...`);
   
   // Stop accepting new connections
-  server.close(() => {
-    logger.info('HTTP server closed');
-  });
+  if (serverInstance) {
+    serverInstance.close(() => {
+      logger.info('HTTP server closed');
+    });
+  }
   
   // Close database connection
   try {
@@ -176,6 +181,9 @@ const startServer = async () => {
     const server = app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT} in ${config.NODE_ENV} mode`);
     });
+    
+    // Store server instance globally
+    serverInstance = server;
     
     // Handle shutdown signals
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

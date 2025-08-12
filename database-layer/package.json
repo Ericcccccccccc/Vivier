@@ -1,5 +1,5 @@
 {
-  "name": "@vivier/database-layer",
+  "name": "@email-ai/database",
   "version": "1.0.0",
   "description": "Modular database abstraction layer with Supabase implementation",
   "main": "dist/index.js",

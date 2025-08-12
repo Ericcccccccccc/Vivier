@@ -23,10 +23,7 @@ import {
   UnsubscribeFunction,
 } from '../interface';
 import {
-  DatabaseError,
   DatabaseConnectionError,
-  DatabaseOperationError,
-  ValidationError,
   NotFoundError,
   DuplicateError,
   TransactionError,
@@ -46,6 +43,14 @@ const emailSchema = z.object({
   bcc_addresses: z.array(z.string().email()).optional(),
   body_text: z.string(),
   body_html: z.string().optional(),
+  attachments: z.array(z.object({
+    id: z.string(),
+    filename: z.string(),
+    content_type: z.string(),
+    size_bytes: z.number(),
+    url: z.string().optional(),
+    inline: z.boolean().optional(),
+  })).optional(),
   received_at: z.date(),
   metadata: z.record(z.any()).optional(),
 });
@@ -70,20 +75,19 @@ export interface SupabaseConfig {
 }
 
 export class SupabaseAdapter implements DatabaseAdapter {
-  private client: SupabaseClient;
-  private serviceClient?: SupabaseClient;
+  private client: SupabaseClient<any, 'public', any>;
+  private serviceClient?: SupabaseClient<any, 'public', any>;
   private channels: Map<string, RealtimeChannel> = new Map();
-  private isConnected: boolean = false;
 
-  constructor(private config: SupabaseConfig) {
+  constructor(config: SupabaseConfig) {
     // Initialize main client with anon key
-    this.client = createClient(config.url, config.anonKey, {
+    this.client = createClient<any, 'public', any>(config.url, config.anonKey, {
       auth: {
         autoRefreshToken: config.options?.auth?.autoRefreshToken ?? true,
         persistSession: config.options?.auth?.persistSession ?? true,
       },
       db: {
-        schema: config.options?.db?.schema ?? 'public',
+        schema: (config.options?.db?.schema ?? 'public') as 'public',
       },
       global: {
         headers: {
@@ -94,13 +98,13 @@ export class SupabaseAdapter implements DatabaseAdapter {
 
     // Initialize service client if service key is provided (for backend operations)
     if (config.serviceKey) {
-      this.serviceClient = createClient(config.url, config.serviceKey, {
+      this.serviceClient = createClient<any, 'public', any>(config.url, config.serviceKey, {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
         },
         db: {
-          schema: config.options?.db?.schema ?? 'public',
+          schema: (config.options?.db?.schema ?? 'public') as 'public',
         },
       });
     }
@@ -113,10 +117,9 @@ export class SupabaseAdapter implements DatabaseAdapter {
 
   async connect(): Promise<void> {
     try {
-      const { data, error } = await this.db.from('users').select('count').limit(1);
+      const { error } = await this.db.from('users').select('count').limit(1);
       if (error) throw error;
       
-      this.isConnected = true;
       logger.info('Connected to Supabase successfully');
     } catch (error) {
       logger.error('Failed to connect to Supabase', { error });
@@ -126,12 +129,11 @@ export class SupabaseAdapter implements DatabaseAdapter {
 
   async disconnect(): Promise<void> {
     // Unsubscribe from all channels
-    for (const [channelName, channel] of this.channels) {
+    for (const [, channel] of this.channels) {
       await this.client.removeChannel(channel);
     }
     this.channels.clear();
     
-    this.isConnected = false;
     logger.info('Disconnected from Supabase');
   }
 
@@ -397,7 +399,7 @@ export class SupabaseAdapter implements DatabaseAdapter {
       if (error) throw error;
 
       // Increment usage metrics
-      if (validated.length > 0) {
+      if (validated.length > 0 && validated[0]) {
         const account = await this.getEmailAccount(validated[0].account_id);
         if (account) {
           await this.incrementUsage(account.user_id, 'emails_processed', validated.length);
@@ -1078,7 +1080,8 @@ export class SupabaseAdapter implements DatabaseAdapter {
         .from('notification_logs')
         .delete()
         .lt('created_at', olderThan.toISOString())
-        .select('*', { count: 'exact', head: true });
+        .select() as any;
+      // @ts-ignore - Workaround for Supabase delete().select() type issue
       
       deletedCount += notificationCount || 0;
 
@@ -1088,7 +1091,8 @@ export class SupabaseAdapter implements DatabaseAdapter {
         .delete()
         .lt('created_at', olderThan.toISOString())
         .not('processed_at', 'is', null)
-        .select('*', { count: 'exact', head: true });
+        .select() as any;
+      // @ts-ignore - Workaround for Supabase delete().select() type issue
       
       deletedCount += emailCount || 0;
 

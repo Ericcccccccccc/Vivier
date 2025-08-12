@@ -5,6 +5,10 @@
  * The architecture allows for easy swapping between different database providers.
  */
 
+// Import for internal use
+import { DatabaseAdapter } from './interface';
+import { SupabaseAdapter } from './adapters/supabase';
+
 // Export main adapter and types
 export { DatabaseAdapter } from './interface';
 export { SupabaseAdapter, SupabaseConfig } from './adapters/supabase';
@@ -57,9 +61,9 @@ export function createDatabaseAdapter(type: 'supabase' = 'supabase', config?: an
     case 'supabase':
       if (!config) {
         config = {
-          url: process.env.SUPABASE_URL,
-          anonKey: process.env.SUPABASE_ANON_KEY,
-          serviceKey: process.env.SUPABASE_SERVICE_KEY,
+          url: process.env['SUPABASE_URL'],
+          anonKey: process.env['SUPABASE_ANON_KEY'],
+          serviceKey: process.env['SUPABASE_SERVICE_KEY'],
         };
       }
       return new SupabaseAdapter(config);

@@ -19,7 +19,7 @@ export class ResponseCache {
     errors: number;
   };
 
-  constructor(private config: CacheConfig) {
+  constructor(protected config: CacheConfig) {
     this.cache = new Map();
     this.lru = [];
     this.stats = {
@@ -140,7 +140,7 @@ export class ResponseCache {
     return crypto.createHash('md5').update(keyString).digest('hex');
   }
 
-  private stableStringify(key: string, value: any): any {
+  private stableStringify(_key: string, value: any): any {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       return Object.keys(value)
         .sort()

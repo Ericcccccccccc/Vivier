@@ -5,7 +5,7 @@ export class DatabaseError extends Error {
   public readonly timestamp: Date;
   public readonly context?: Record<string, any>;
 
-  constructor(message: string, public cause?: any, context?: Record<string, any>) {
+  constructor(message: string, public override cause?: any, context?: Record<string, any>) {
     super(message);
     this.name = 'DatabaseError';
     this.timestamp = new Date();

@@ -1,13 +1,17 @@
-# Multi-stage build for smaller image
+# Multi-stage build for TypeScript API
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files (use package-docker.json which has no local dependencies)
-COPY package-docker.json ./package.json
+# Copy workspace packages first
+COPY database-layer-temp ./database-layer-temp
+COPY ai-provider-layer-temp ./ai-provider-layer-temp
+
+# Copy package files
+COPY package-temp.json ./package.json
 COPY tsconfig.json ./
 
-# Install all dependencies (including dev for building)
+# Fresh install of dependencies
 RUN npm install
 
 # Copy source
@@ -28,12 +32,15 @@ RUN apk add --no-cache dumb-init
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copy package files (use package-docker.json as package.json)
-COPY --chown=nodejs:nodejs package-docker.json ./package.json
+# Copy workspace packages
+COPY --from=builder --chown=nodejs:nodejs /app/database-layer-temp ./database-layer-temp
+COPY --from=builder --chown=nodejs:nodejs /app/ai-provider-layer-temp ./ai-provider-layer-temp
 
-# Install only production dependencies
-RUN npm install --only=production && \
-    npm cache clean --force
+# Copy package files
+COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
+
+# Copy node_modules (includes built workspace packages)
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Copy built application
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
@@ -42,6 +49,9 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 USER nodejs
 
 # Expose port (Cloud Run uses PORT env var)
+ENV PORT=8080
+ENV NODE_ENV=production
+
 EXPOSE 8080
 
 # Health check

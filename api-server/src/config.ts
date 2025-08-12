@@ -11,6 +11,7 @@ const envSchema = z.object({
   DATABASE_PROVIDER: z.enum(['supabase', 'postgres']).default('supabase'),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_KEY: z.string(),
+  SUPABASE_ANON_KEY: z.string().optional(),
   
   // AI
   AI_PROVIDER: z.enum(['groq', 'openai']).default('groq'),

@@ -177,7 +177,7 @@ export function isRetryableError(error: any): boolean {
     return true;
   }
   if (error instanceof ModelUnavailableError) {
-    return error.alternativeModels && error.alternativeModels.length > 0;
+    return !!(error.alternativeModels && error.alternativeModels.length > 0);
   }
   return false;
 }

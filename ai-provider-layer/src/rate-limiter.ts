@@ -8,12 +8,12 @@ export interface RateLimitWindow {
 }
 
 export class RateLimiter {
-  private currentWindow: RateLimitWindow;
-  private dailyWindow: RateLimitWindow;
+  protected currentWindow: RateLimitWindow;
+  protected dailyWindow: RateLimitWindow;
   private readonly windowDuration = 60000; // 1 minute in ms
   private readonly dailyWindowDuration = 86400000; // 24 hours in ms
 
-  constructor(private limits: RateLimits) {
+  constructor(protected limits: RateLimits) {
     this.currentWindow = {
       requestCount: 0,
       tokenCount: 0,
@@ -107,7 +107,6 @@ export class RateLimiter {
   getStatus(): RateLimitStatus {
     this.resetWindowIfNeeded();
     
-    const now = Date.now();
     const windowEnd = this.currentWindow.windowStart + this.windowDuration;
     
     return {

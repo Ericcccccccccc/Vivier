@@ -92,10 +92,9 @@ export class GroqProvider implements AIProvider {
         messages: input.messages,
         model: this.model,
         temperature: input.options?.temperature ?? this.temperature,
-        max_completion_tokens: input.options?.maxTokens ?? 8192,
+        max_tokens: input.options?.maxTokens ?? 8192,
         top_p: input.options?.topP ?? 1,
         stream: false,
-        reasoning_effort: 'medium',
         stop: input.options?.stopSequences ?? null,
       });
 
@@ -140,10 +139,9 @@ export class GroqProvider implements AIProvider {
         messages: input.messages,
         model: this.model,
         temperature: input.options?.temperature ?? this.temperature,
-        max_completion_tokens: input.options?.maxTokens ?? 8192,
+        max_tokens: input.options?.maxTokens ?? 8192,
         top_p: input.options?.topP ?? 1,
         stream: true,
-        reasoning_effort: 'medium',
         stop: input.options?.stopSequences ?? null,
       });
 
@@ -211,10 +209,9 @@ export class GroqProvider implements AIProvider {
             ],
             model: this.model,
             temperature: this.temperature,
-            max_completion_tokens: context.maxLength ? Math.min(context.maxLength * 2, 8192) : 8192,
+            max_tokens: context.maxLength ? Math.min(context.maxLength * 2, 8192) : 8192,
             stream: true,
-            reasoning_effort: 'medium',
-            stop: null,
+                stop: null,
           });
         },
         this.maxRetries
@@ -359,9 +356,8 @@ export class GroqProvider implements AIProvider {
       const response = await this.client.chat.completions.create({
         messages: [{ role: 'user', content: 'test' }],
         model: this.model,
-        max_completion_tokens: 1,
+        max_tokens: 1,
         stream: false,
-        reasoning_effort: 'low',
       });
       
       return !!response.choices[0]?.message;

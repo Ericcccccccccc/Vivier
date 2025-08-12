@@ -32,10 +32,13 @@ export interface UsageExport {
 
 export class UsageTracker {
   private metrics: Map<string, UsageMetric[]>;
-  private costRates: Map<string, { input: number; output: number }>;
+  private costRates: Map<string, { input: number; output: number }> = new Map();
   private freeTierLimits: {
     daily: { requests: number; tokens: number };
     monthly: { requests: number; tokens: number };
+  } = {
+    daily: { requests: 0, tokens: 0 },
+    monthly: { requests: 0, tokens: 0 }
   };
 
   constructor() {
@@ -201,7 +204,6 @@ export class UsageTracker {
     
     // Group by day
     this.metrics.forEach((dayMetrics, dayKey) => {
-      const successful = dayMetrics.filter(m => m.success);
       const failed = dayMetrics.filter(m => !m.success);
       
       byDay[dayKey] = {

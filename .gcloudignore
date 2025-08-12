@@ -1,0 +1,79 @@
+# Root .gcloudignore for Vivier project
+
+# Ignore all node_modules everywhere
+**/node_modules/
+
+# Ignore all build outputs
+**/dist/
+**/build/
+**/.next/
+**/out/
+
+# Ignore all environment files
+**/.env
+**/.env.*
+.env.deployment
+
+# Ignore temporary files
+**/temp/
+**/tmp/
+**/*.tmp
+**/*.temp
+# IMPORTANT: Don't ignore these - needed for Cloud Build
+# **/database-layer-temp/
+# **/ai-provider-layer-temp/
+
+# Ignore logs
+**/*.log
+**/logs/
+
+# Ignore test files
+**/coverage/
+**/.nyc_output/
+**/test/
+**/tests/
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+
+# Ignore documentation
+**/*.md
+**/docs/
+
+# Ignore version control
+.git/
+.github/
+**/.gitignore
+
+# Ignore IDE files
+.vscode/
+.idea/
+**/*.swp
+**/*.swo
+**/.DS_Store
+
+# Ignore other non-essential directories
+frontend/
+whatsapp-bot/
+api-simple/
+deployment/
+scripts/
+
+# Cache directories
+**/.cache/
+**/.npm/
+**/.yarn/
+
+# Only include what's needed for the api-server build
+!api-server/src/
+!api-server/package.json
+!api-server/package-lock.json
+!api-server/tsconfig.json
+!api-server/Dockerfile.build
+!database-layer/src/
+!database-layer/package.json
+!database-layer/tsconfig.json
+!ai-provider-layer/src/
+!ai-provider-layer/package.json
+!ai-provider-layer/tsconfig.json
