@@ -1,0 +1,9 @@
+{
+  "timestamp": "2025-08-12T12:40:46-03:00",
+  "api_url": "https://vivier-api-typescript-1029830533013.us-central1.run.app",
+  "supabase_url": "https://ftkricctldivgsdenegs.supabase.co",
+  "commit": "eeff7e001b7e968fa35f9a0ea1b78750a999f227",
+  "branch": "master",
+  "deployed_by": "eric",
+  "environment": "production"
+}

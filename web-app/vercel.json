@@ -1,0 +1,41 @@
+{
+  "name": "vivier-frontend",
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "public": false,
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://vivier-api-typescript-1029830533013.us-central1.run.app",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://ftkricctldivgsdenegs.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0a3JpY2N0bGRpdmdzZGVuZWdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NzUzMjUsImV4cCI6MjA3MDE1MTMyNX0.bHwU7flkwejQLfpGssfdoF1el6YDtPSldL4juP_iCcc"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_API_URL": "https://vivier-api-typescript-1029830533013.us-central1.run.app",
+      "NEXT_PUBLIC_SUPABASE_URL": "https://ftkricctldivgsdenegs.supabase.co",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0a3JpY2N0bGRpdmdzZGVuZWdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NzUzMjUsImV4cCI6MjA3MDE1MTMyNX0.bHwU7flkwejQLfpGssfdoF1el6YDtPSldL4juP_iCcc"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ]
+}
