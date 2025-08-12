@@ -160,7 +160,9 @@ export class APIClient {
           throw new Error('Failed to refresh token');
         }
 
-        const data = await response.json();
+        const responseData = await response.json();
+        // Handle wrapped response format
+        const data = responseData.data || responseData;
         this.saveTokens(data.accessToken, data.refreshToken);
       } catch (error) {
         this.clearTokens();
@@ -202,17 +204,23 @@ export class APIClient {
         return this.request(endpoint, options);
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
 
       if (!response.ok) {
+        // Handle error responses - they may be wrapped or unwrapped
+        const errorMessage = responseData?.error?.message || responseData?.message || 'An error occurred';
+        const errorCode = responseData?.error?.code || responseData?.code;
         throw new APIError(
-          data.message || 'An error occurred',
+          errorMessage,
           response.status,
-          data.code
+          errorCode
         );
       }
 
-      return data;
+      // Handle wrapped responses from the API
+      // The API returns { data: {...}, message: "..." }
+      // But we want to return just the data portion
+      return responseData.data || responseData;
     } catch (error) {
       if (error instanceof APIError) {
         throw error;

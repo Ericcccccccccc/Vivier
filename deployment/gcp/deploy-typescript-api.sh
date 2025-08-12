@@ -59,24 +59,16 @@ echo -e "${YELLOW}📦 Preparing Docker build...${NC}"
 
 # Build workspace packages first
 echo "Building workspace packages..."
-cd ../database-layer && npm run build
-cd ../ai-provider-layer && npm run build
+cd ../database-layer && npm install && npm run build
+cd ../ai-provider-layer && npm install && npm run build
 cd "$API_DIR"
 
-# Copy workspace packages to api-server directory temporarily (including built files)
-echo "Copying workspace packages (source and dist)..."
-mkdir -p database-layer-temp/src
-mkdir -p database-layer-temp/dist
-mkdir -p ai-provider-layer-temp/src
-mkdir -p ai-provider-layer-temp/dist
-cp -r ../database-layer/src/* ./database-layer-temp/src/
-cp -r ../database-layer/dist/* ./database-layer-temp/dist/ 2>/dev/null || true
-cp -r ../database-layer/package.json ./database-layer-temp/
-cp -r ../database-layer/tsconfig.json ./database-layer-temp/
-cp -r ../ai-provider-layer/src/* ./ai-provider-layer-temp/src/
-cp -r ../ai-provider-layer/dist/* ./ai-provider-layer-temp/dist/ 2>/dev/null || true
-cp -r ../ai-provider-layer/package.json ./ai-provider-layer-temp/
-cp -r ../ai-provider-layer/tsconfig.json ./ai-provider-layer-temp/
+# Copy workspace packages to api-server directory temporarily (including built files and dependencies)
+echo "Copying workspace packages (source, dist, and node_modules)..."
+mkdir -p database-layer-temp
+mkdir -p ai-provider-layer-temp
+cp -r ../database-layer/* ./database-layer-temp/
+cp -r ../ai-provider-layer/* ./ai-provider-layer-temp/
 
 # Create a temporary package.json that references local packages
 cat > package-temp.json << EOF
@@ -142,7 +134,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy workspace packages first
+# Copy workspace packages first (already built)
 COPY database-layer-temp ./database-layer-temp
 COPY ai-provider-layer-temp ./ai-provider-layer-temp
 

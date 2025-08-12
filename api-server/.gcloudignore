@@ -5,7 +5,9 @@
 
 # Node modules - these will be installed during build
 node_modules/
-*/node_modules/
+# Don't ignore node_modules in temp directories - they're needed
+!database-layer-temp/node_modules/
+!ai-provider-layer-temp/node_modules/
 
 # Build output - will be built fresh in Cloud Build
 dist/
