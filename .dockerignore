@@ -1,0 +1,69 @@
+# Node modules - will be installed fresh in Docker
+**/node_modules
+node_modules
+
+# Build outputs - will be built fresh in Docker
+**/dist
+**/build
+**/*.tsbuildinfo
+
+# Development files
+**/.env
+**/.env.*
+!**/.env.example
+
+# Test files  
+**/test
+**/tests
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+**/coverage
+**/.nyc_output
+
+# Documentation
+**/docs
+**/*.md
+!**/package.json
+!**/package-lock.json
+
+# Version control
+.git
+.gitignore
+**/.gitignore
+
+# IDE files
+.vscode
+.idea
+**/*.swp
+**/*.swo
+**/.DS_Store
+
+# Logs
+**/*.log
+**/logs
+
+# Other unnecessary files
+**/.eslintrc*
+**/.prettierrc*
+**/.editorconfig
+
+# Temporary files
+**/tmp
+**/temp
+**/*.tmp
+**/*.temp
+
+# Keep only what's needed for build
+!database-layer/src
+!database-layer/package.json
+!database-layer/tsconfig.json
+!ai-provider-layer/src  
+!ai-provider-layer/package.json
+!ai-provider-layer/tsconfig.json
+!api-server/src
+!api-server/package.json
+!api-server/tsconfig.json
+!package.json
+!package-lock.json
