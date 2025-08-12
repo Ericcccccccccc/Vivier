@@ -23,7 +23,7 @@ const envSchema = z.object({
   REFRESH_TOKEN_EXPIRES_IN: z.string().default('7d'),
   
   // CORS
-  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: z.string().default('http://localhost:3000'),
   
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.string().default('60000'),

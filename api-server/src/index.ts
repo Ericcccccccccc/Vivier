@@ -24,6 +24,9 @@ const logger = pino({
 
 const app = express();
 
+// Trust proxy for Cloud Run (specific number of proxies)
+app.set('trust proxy', 1);
+
 // Security
 app.use(helmet({
   contentSecurityPolicy: {
@@ -34,9 +37,22 @@ app.use(helmet({
   },
 }));
 
-// CORS
+// CORS - Allow multiple origins
+const allowedOrigins = config.FRONTEND_URL.split(',').map(url => url.trim());
 app.use(cors({
-  origin: config.FRONTEND_URL,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in the allowed list or matches Vercel pattern
+    if (allowedOrigins.includes(origin) || 
+        origin.includes('vercel.app') || 
+        origin.includes('localhost')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 

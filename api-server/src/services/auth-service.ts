@@ -31,7 +31,7 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Create user (password will be stored separately in auth system)
+    // Create user with password hash in settings (temporary solution)
     const user = await db.createUser({
       email,
       settings: {
@@ -39,16 +39,8 @@ export class AuthService {
         auto_reply: false,
         language: 'en',
         theme: 'light',
-        ai_tone: 'professional'
-      }
-    });
-    
-    // Store password hash separately (would normally use Supabase Auth)
-    // For now, we'll store it in user metadata
-    await db.updateUser(user.id, {
-      settings: {
-        ...user.settings,
-        passwordHash: hashedPassword // Temporary solution
+        ai_tone: 'professional',
+        passwordHash: hashedPassword // Temporary solution - should use Supabase Auth
       }
     });
     
@@ -106,14 +98,14 @@ export class AuthService {
         email: string;
       };
       
-      // Check if refresh token is stored
-      const isValid = await db.validateRefreshToken(payload.userId, refreshToken);
-      if (!isValid) {
+      // Check if refresh token is stored (fixed to pass only token)
+      const sessionData = await db.validateRefreshToken(refreshToken);
+      if (!sessionData) {
         throw new UnauthorizedError('Invalid refresh token');
       }
       
       // Get user
-      const user = await db.getUserById(payload.userId);
+      const user = await db.getUserById(sessionData.user_id);
       if (!user) {
         throw new UnauthorizedError('User not found');
       }
@@ -138,10 +130,15 @@ export class AuthService {
   }
   
   async logout(userId: string, refreshToken?: string): Promise<void> {
-    if (refreshToken) {
-      await db.revokeRefreshToken(userId, refreshToken);
-    } else {
-      await db.revokeAllRefreshTokens(userId);
+    try {
+      if (refreshToken) {
+        await db.revokeRefreshToken(refreshToken);
+      } else {
+        await db.revokeAllRefreshTokens(userId);
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Don't throw - logout should always succeed from user perspective
     }
   }
   
